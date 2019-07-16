@@ -5,7 +5,7 @@ from torch.nn.utils.rnn import pad_packed_sequence as unpack
 
 def hierIterator(tensor, tensor_len, batch_size):
     count = 0
-    max_len = tensor.size(0)
+    max_len = len(tensor_len)
     while True:
         if count + batch_size >= max_len:
             yield tensor[count:], tensor_len[count:]
@@ -13,6 +13,7 @@ def hierIterator(tensor, tensor_len, batch_size):
 
         yield tensor[count: count+batch_size], tensor_len[count: count+batch_size]
         count = count+batch_size
+
 
 class Attention(nn.Module):
 
@@ -83,17 +84,22 @@ class HierAttModel(nn.Module):
 
     def forward(self, ids, sent_len, word_len):
         batch_size, max_sent_len, max_word_len = ids.size()
+        # |ids| = (batch_size, max_sent_len, max_word_len)
 
         ids = ids.view(-1, max_word_len)
         word_len = word_len.view(-1)
+        # |ids| = (total_len, max_word_len)
+        # |word_len| = (total_len)
 
         selected_index = []
         for sent_idx, length in enumerate(sent_len):
             selected_index += [sent_idx * max_sent_len + idx for idx in range(length)]
         torch.tensor(selected_index)
 
-        ids = ids[selected_index].squeeze()
-        word_len = word_len[selected_index].squeeze()
+        ids = ids[selected_index].view(-1, max_word_len)
+        word_len = word_len[selected_index].view(-1)
+        # |ids| = (total_len, max_word_len)
+        # |word_len| = (total_len)
 
         sent_vecs = []
         for temp_ids, temp_word_len in hierIterator(ids, word_len, self.running_size):

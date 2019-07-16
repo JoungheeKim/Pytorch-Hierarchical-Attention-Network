@@ -12,8 +12,9 @@ def build_parser():
     ##Loader option
     parser.add_argument("--train_path", dest="train_path", default="source/train.csv")
     parser.add_argument("--valid_path", dest="valid_path", default="source/test.csv")
-    parser.add_argument("--max_sent_len", dest="max_sent_len", default=512, type=int)
-    parser.add_argument("--max_word_len", dest="max_word_len", default=512, type=int)
+    parser.add_argument("--save_path", dest="save_path", default=None)
+    parser.add_argument("--max_sent_len", dest="max_sent_len", default=10, type=int)
+    parser.add_argument("--max_word_len", dest="max_word_len", default=256, type=int)
     parser.add_argument("--tokenizer_name", dest="tokenizer_name", default="word_tokenizer",
                         help="Choose gensim, word_tokenizer")
 
@@ -25,7 +26,7 @@ def build_parser():
     ##Train option
     parser.add_argument("--n_epochs", dest="n_epochs", default=15, type=int)
     parser.add_argument("--early_stop", dest="early_stop", default=2, type=int)
-    parser.add_argument("--batch_size", dest="batch_size", default=32, type=int)
+    parser.add_argument("--batch_size", dest="batch_size", default=16, type=int)
     
     ##Embedding option
     parser.add_argument("--dict_path", dest="dict_path", default="word2vec")
@@ -45,6 +46,7 @@ def main(config):
     lr_list = [0.0002 , 0.0001, 0.00005, 0.000025]
     hidden_list = [128, 256, 512]
 
+    """
     dict_list = []
     ## Generating Embedding
     for size in size_list:
@@ -53,6 +55,23 @@ def main(config):
         generator = EmbeddingGenerator(config.train_path, config.dict_path, config.tokenizer_name, config)
         dict_path = generator.generate()
         dict_list.append(dict_path)
+    """
+
+    dict_list = [
+        "word2vec/1",
+        "word2vec/2",
+        "word2vec/3",
+        "word2vec/4",
+        "word2vec/5",
+        "word2vec/6",
+        "word2vec/7"
+    ]
+
+    history = {
+        "train_loss": [],
+        "valid_loss": [],
+        "valid_correct": []
+    }
 
     ## Testing multiple options
     for dict_path in dict_list:
@@ -61,7 +80,7 @@ def main(config):
             config.lr = lr
             for hidden_size in hidden_list:
                 config.hidden_size = hidden_size
-                run(config)
+                temp_history = run(config)
 
 if __name__ == "__main__":
     ##load config files

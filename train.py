@@ -111,7 +111,8 @@ def run(config):
                       crit=crit,
                       config=config,
                       device=config.device)
-    trainer.train(train, valid)
+    history = trainer.train(train, valid)
+    return history
 
 if __name__ == "__main__":
     ##load config files

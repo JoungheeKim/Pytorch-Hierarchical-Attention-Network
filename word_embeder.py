@@ -15,7 +15,7 @@ class Word2VecCorpus:
         with open(self.data_path, encoding="UTF8") as csv_file:
             reader = csv.reader(csv_file, quotechar='"')
             for idx, line in enumerate(reader):
-                for sent in sent_tokenize(line[1]):
+                for sent in sent_tokenize(line[0]):
                     yield self.tokenizer.tokenize(sent)
 
 class MyTokenizer():

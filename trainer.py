@@ -7,6 +7,7 @@ import logging
 from torch import nn
 from torch.utils.data import DataLoader
 import json
+import numpy as np
 
 class Trainer():
     def __init__(self, model, crit, config, device="cpu"):
@@ -35,6 +36,12 @@ class Trainer():
                      }
         logging.info("##################### Init Trainer")
 
+        self.history ={
+            "train_loss" : [],
+            "valid_loss" : [],
+            "valid_correct": []
+        }
+
 
     def get_best_model(self):
         self.model.load_state_dict(self.best['model'])
@@ -42,6 +49,11 @@ class Trainer():
 
     def save_training(self, path):
         torch.save(self.best, path)
+
+    def save_history(self, path):
+        np.save(os.path.join(path, "train_loss"), self.history["train_loss"])
+        np.save(os.path.join(path, "valid_loss"), self.history["valid_loss"])
+        np.save(os.path.join(path, "valid_correct"), self.history["valid_correct"])
 
     def _get_loss(self, y_hat, y, crit=None):
         # |y_hat| = (batch_size, length, output_size)
@@ -82,6 +94,10 @@ class Trainer():
                                                                                                       avg_valid_loss,
                                                                                                       avg_valid_correct,
                                                                                                       best_loss))
+            self.history["train_loss"].append(avg_train_loss)
+            self.history["valid_loss"].append(avg_valid_loss)
+            self.history["valid_correct"].append(avg_valid_correct)
+            self.save_history(self.save_path)
 
             if (self.lower_is_better and avg_valid_loss < best_loss) or \
                (not self.lower_is_better and avg_valid_loss > best_loss):
@@ -103,8 +119,10 @@ class Trainer():
                 if lowest_after >= self.config.early_stop and \
                    self.config.early_stop > 0:
                     logging.debug("early stop")
-                    break
+                    progress_bar.close()
+                    return self.history
         progress_bar.close()
+        return self.history
 
     def train_epoch(self, train, optimizer):
         '''

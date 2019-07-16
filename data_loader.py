@@ -70,8 +70,8 @@ class MyDataLoader():
                     text += tx.lower()
                     text += " "
                 """
-                label = int(line[0])
-                docs.append(line[1])
+                label = int(line[1])
+                docs.append(line[0])
                 labels.append(label)
         num_class = np.unique(labels)
         return docs, labels, num_class
@@ -90,9 +90,10 @@ class MyDataLoader():
                 if len(sentence) == 0:
                     sentence.extend([0])
 
+            temp_index = [sentences[:self.max_word_len] for sentences in temp_index][:self.max_sent_len]
+
             sent_len = len(temp_index)
             word_len = [len(sent) for sent in temp_index]
-
 
             #Update maximum word, sent Length of Documents
             if sent_len > self.data_sent_len:
@@ -105,7 +106,6 @@ class MyDataLoader():
             docs_sent_len.append(sent_len)
             docs_word_len.append(word_len)
 
-        #return MyDataset(docs_ids, docs_sent_len, docs_word_len, labels)
         return DocumentDataset(docs_ids, docs_sent_len, docs_word_len, labels, max_word_len=self.max_word_len, max_sent_len=self.max_sent_len)
 
     def get_train_valid(self):
@@ -127,29 +127,15 @@ class MyDataLoader():
         return train, valid, num_class
 
     def compac_max_length(self):
-        if self.max_word_len != self.data_word_len and self.max_sent_len != self.data_sent_len:
+        changed = False
+        if self.max_word_len >= self.data_word_len:
             self.max_word_len = self.data_word_len
+            changed = True
+        if self.max_sent_len >= self.data_sent_len:
             self.max_sent_len = self.data_sent_len
-            return True
-        else:
-            return False
+            changed = True
+        return changed
 
-class MyDataset(Dataset):
-
-    def __init__(self, ids, sent_len, word_len, labels):
-        super(MyDataset, self).__init__()
-
-        self.ids = torch.tensor(ids, dtype=torch.long)
-        self.sent_len = torch.tensor(sent_len, dtype=torch.long)
-        self.word_len = torch.tensor(word_len, dtype=torch.long)
-        self.labels = torch.tensor(labels, dtype=torch.long)
-        self.len = len(labels)
-
-    def __len__(self):
-        return len(self.labels)
-
-    def __getitem__(self, index):
-        return self.ids[index], self.sent_len[index], self.word_len[index], self.labels[index]
 
 class DocumentDataset(Dataset):
 
