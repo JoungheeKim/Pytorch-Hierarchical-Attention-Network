@@ -18,12 +18,12 @@ def build_parser():
     parser.add_argument("--device", dest="device", default="gpu")
 
     ##Loader option
-    parser.add_argument("--train_path", dest="train_path", default="data/train.csv")
-    parser.add_argument("--valid_path", dest="valid_path", default="data/test.csv")
-    parser.add_argument("--dict_path", dest="dict_path", default="word2vec/6")
+    parser.add_argument("--train_path", dest="train_path", default="source/train.csv")
+    parser.add_argument("--valid_path", dest="valid_path", default="source/test.csv")
+    parser.add_argument("--dict_path", dest="dict_path", default="word2vec/1")
     parser.add_argument("--save_path", dest="save_path", default=None)
-    parser.add_argument("--max_sent_len", dest="max_sent_len", default=512, type=int)
-    parser.add_argument("--max_word_len", dest="max_word_len", default=512, type=int)
+    parser.add_argument("--max_sent_len", dest="max_sent_len", default=10, type=int)
+    parser.add_argument("--max_word_len", dest="max_word_len", default=256, type=int)
     parser.add_argument("--tokenizer_name", dest="tokenizer_name", default="word_tokenizer",
                         help="Choose gensim, word_tokenizer")
 
@@ -35,10 +35,8 @@ def build_parser():
     ##Train option
     parser.add_argument("--n_epochs", dest="n_epochs", default=15, type=int)
     parser.add_argument("--lr", dest="lr", default=0.00001, type=int)
-    parser.add_argument("--early_stop", dest="early_stop", default=2, type=int)
-    parser.add_argument("--batch_size", dest="batch_size", default=32, type=int)
-    #parser.add_argument("--mode",dest="mode", metavar="MODE", default="train")
-
+    parser.add_argument("--early_stop", dest="early_stop", default=1, type=int)
+    parser.add_argument("--batch_size", dest="batch_size", default=16, type=int)
 
     config = parser.parse_args()
     return config
