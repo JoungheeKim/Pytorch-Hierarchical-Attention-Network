@@ -34,6 +34,7 @@ class MyTokenizer():
 class EmbeddingGenerator():
     def __init__(self, data_path, save_path, tokenizer_name, config):
         self.data_path = data_path
+        assert os.path.isfile(data_path), "There is no train files. Please check options PATH:"+str(data_path)
         self.save_path = save_path
         self.tokenizer_name = tokenizer_name
         self.config = config
@@ -51,6 +52,7 @@ class EmbeddingGenerator():
         self.config_name = "config.json"
 
     def generate(self):
+        print("Generate word2vec model...")
         word2vec_corpus = Word2VecCorpus(self.data_path, MyTokenizer(self.tokenizer_name))
         word2vec_model = Word2Vec(
             word2vec_corpus,
@@ -61,20 +63,23 @@ class EmbeddingGenerator():
             sg=self.config.sg,
             negative=self.config.negative)
 
-        word2vec_model.vocabulary
-
         word2vec_model.save(os.path.join(self.model_path, self.model_name))
-        device = self.config.device
-        self.config.device = "gpu"
+
+        if hasattr(self.config, "device"):
+            device = self.config.device
+            self.config.device = "gpu"
+
         with open(os.path.join(self.model_path, self.config_name), 'w') as outfile:
             json.dump(vars(self.config), outfile)
-        self.config.device = device
+
+        if hasattr(self.config, "device"):
+            self.config.device = device
 
         return self.model_path
 
 def build_parser():
     parser = ArgumentParser()
-    parser.add_argument("--train_path", dest="train_path", default="data/train.csv")
+    parser.add_argument("--train_path", dest="train_path", default="source/train.csv")
     parser.add_argument("--dict_path", dest="dict_path", default="word2vec")
 
     parser.add_argument("--tokenizer_name", dest="tokenizer_name", default="word_tokenizer", help="Choose gensim, word_tokenizer")
