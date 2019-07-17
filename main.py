@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 import torch
 from word_embeder import EmbeddingGenerator
 from train import run
+import pandas as pd
 
 def build_parser():
     parser = ArgumentParser()
@@ -71,7 +72,10 @@ def main(config):
     history = {
         "train_loss": [],
         "valid_loss": [],
-        "valid_correct": []
+        "valid_correct": [],
+        "epoch" : [],
+        "lr" : [],
+        "word2vec" : []
     }
 
     ## Testing multiple options
@@ -82,7 +86,20 @@ def main(config):
             for hidden_size in hidden_list:
                 config.hidden_size = hidden_size
                 temp_history = run(config)
+                epoch_size = len(temp_history["train_loss"])
+                temp_epoch = [epoch for epoch in range(epoch_size)]
+                temp_lr = [lr for epoch in range(epoch_size)]
+                temp_word2vec = [dict_path for epoch in range(epoch_size)]
 
+                history["train_loss"].extend(temp_history["train_loss"])
+                history["valid_loss"].extend(temp_history["valid_loss"])
+                history["valid_correct"].extend(temp_history["valid_correct"])
+                history["epoch"].extend(temp_epoch)
+                history["lr"].extend(temp_lr)
+                history["word2vec"].extend(temp_word2vec)
+
+    df = pd.DataFrame(history)
+    df.to_csv("result.csv", encoding="UTF8", index=False)
 
 if __name__ == "__main__":
     ##load config files
