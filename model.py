@@ -202,7 +202,9 @@ class AttModel(nn.Module):
     def forward(self, x, x_length):
         # |x| = (batch_size, length)
         # |x_length| = (batch_size)
-        batch_size = x_length.size(0)
+        # 'length equals torch.max(x_length)
+        batch_size= x.size(0)
+        length = x.size(1)
 
         # Based on the length information, gererate mask to prevent that shorter sample has wasted attention.
         mask = self.generate_mask(x_length)
@@ -217,16 +219,17 @@ class AttModel(nn.Module):
 
         # The last hidden state of the encoder would be a initial hidden state of decoder.
         h_src, h_0_tgt = self.encode((emb_src, x_length))
-        # |h_src| = (batch_size, length, hidden_size)
+        # |h_src| = (batch_size, 'length, hidden_size)   - Notice that 'length equals torch.max(x_length)
         # |h_0_tgt| = (n_layers * 2, batch_size, hidden_size / 2)
 
         context_vector, context_weight = self.attn(h_src, self.context_weight, mask)
         # |context_vector| = (batch_size, 1, hidden_size)
-        # |context_weight| = (batch_size, length)
+        # |context_weight| = (batch_size, 'length) - Notice that 'length equals torch.max(x_length)
 
         context_vector = context_vector.view(batch_size, -1)
         # |context_vector| = (batch_size, hidden_size)
 
+        context_weight = self.resize_weight(context_weight, length)
 
         return context_vector, context_weight
 
@@ -249,6 +252,15 @@ class AttModel(nn.Module):
         mask = torch.cat(mask, dim=0).byte()
 
         return mask.to(self.device)
+
+    def resize_weight(self, context_weight, length):
+        length_hat = context_weight.size(1)
+        if length > length_hat:
+            temp_weight = []
+            for weight in context_weight:
+                temp_weight += [torch.cat([weight, weight.new_ones(length - length_hat).zero_()]).view(1, -1)]
+            context_weight = torch.cat(temp_weight, dim=0)
+        return context_weight
 
 
 
