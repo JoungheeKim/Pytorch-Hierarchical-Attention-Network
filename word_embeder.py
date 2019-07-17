@@ -23,12 +23,15 @@ class MyTokenizer():
         self.tokenizer_name = tokenizer_name
         self.lemma = nltk.wordnet.WordNetLemmatizer()
 
-    def tokenize(self, sent):
+    def tokenize(self, sent, lemma=True):
         if self.tokenizer_name == "gensim":
             return gensim.utils.simple_preprocess(sent)
         else:
             tokens = word_tokenize(sent)
-            return [self.lemma.lemmatize(token) for token in tokens]
+            if lemma:
+                return [self.lemma.lemmatize(token) for token in tokens]
+            else:
+                return tokens
 
 
 class EmbeddingGenerator():
