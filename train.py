@@ -37,6 +37,7 @@ def build_parser():
     parser.add_argument("--lr", dest="lr", default=0.00001, type=int)
     parser.add_argument("--early_stop", dest="early_stop", default=1, type=int)
     parser.add_argument("--batch_size", dest="batch_size", default=16, type=int)
+    parser.add_argument("--num_class", dest="num_class", default=1, type=int)
 
     config = parser.parse_args()
     return config
@@ -92,6 +93,7 @@ def run(config):
     input_size = loader.get_dict_size()
     word_vec_dim = loader.get_dict_vec_dim()
     embedding = loader.get_embedding()
+    config.num_class = num_class
 
     logging.info("##################### Load 'HAN' Model")
     model = HierAttModel(input_size=input_size,

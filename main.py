@@ -36,6 +36,7 @@ def build_parser():
     parser.add_argument("--min_count", dest="min_count", type=int, default=0)
     parser.add_argument("--sg", dest="sg", type=int, default=0)
     parser.add_argument("--negative", dest="negative", type=int, default=5)
+    parser.add_argument("--num_class", dest="num_class", default=1, type=int)
     
     config = parser.parse_args()
     return config
@@ -81,6 +82,7 @@ def main(config):
             for hidden_size in hidden_list:
                 config.hidden_size = hidden_size
                 temp_history = run(config)
+
 
 if __name__ == "__main__":
     ##load config files

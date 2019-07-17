@@ -44,7 +44,7 @@ class Attention(nn.Module):
         context_vector = torch.bmm(weight.unsqueeze(1), h_src)
         # |context_vector| = (batch_size, 1, hidden_size)
 
-        return context_vector
+        return context_vector, weight
 
 
 class HierAttModel(nn.Module):
@@ -91,6 +91,7 @@ class HierAttModel(nn.Module):
         # |ids| = (total_len, max_word_len)
         # |word_len| = (total_len)
 
+        # Pick the indices having information
         selected_index = []
         for sent_idx, length in enumerate(sent_len):
             selected_index += [sent_idx * max_sent_len + idx for idx in range(length)]
@@ -102,10 +103,13 @@ class HierAttModel(nn.Module):
         # |word_len| = (total_len)
 
         sent_vecs = []
+        word_weights = []
         for temp_ids, temp_word_len in hierIterator(ids, word_len, self.running_size):
-            sent_vec, s_h_vecs = self.word_model(temp_ids, temp_word_len)
+            sent_vec, word_weight = self.word_model(temp_ids, temp_word_len)
             sent_vecs += [sent_vec]
+            word_weights += [word_weight]
         sent_vecs = torch.cat(sent_vecs, dim=0)
+        word_weights = torch.cat(word_weights, dim=0)
 
         hidden_size = sent_vecs.size(1)
         temp_vec = []
@@ -120,14 +124,17 @@ class HierAttModel(nn.Module):
         sent_vecs = torch.cat(temp_vec, dim=0)
 
         doc_vecs = []
+        sent_weights = []
         for temp_vec, temp_sent_len in hierIterator(sent_vecs, sent_len, self.running_size):
-            doc_vec, d_h_vecs = self.sent_model(temp_vec, temp_sent_len)
+            doc_vec, sent_weight = self.sent_model(temp_vec, temp_sent_len)
             doc_vecs += [doc_vec]
+            sent_weights += [sent_weight]
         doc_vecs = torch.cat(doc_vecs, dim=0)
+        sent_weights = torch.cat(sent_weights, dim=0)
 
         y = self.softmax(self.output(doc_vecs))
 
-        return y
+        return y, word_weights, sent_weights
 
     def set_embedding(self, embedding):
         self.word_model.emb_src.weight.data.copy_(embedding)
@@ -213,12 +220,15 @@ class AttModel(nn.Module):
         # |h_src| = (batch_size, length, hidden_size)
         # |h_0_tgt| = (n_layers * 2, batch_size, hidden_size / 2)
 
-        context_vector = self.attn(h_src, self.context_weight, mask)
+        context_vector, context_weight = self.attn(h_src, self.context_weight, mask)
         # |context_vector| = (batch_size, 1, hidden_size)
+        # |context_weight| = (batch_size, length)
+
         context_vector = context_vector.view(batch_size, -1)
         # |context_vector| = (batch_size, hidden_size)
 
-        return context_vector, h_0_tgt
+
+        return context_vector, context_weight
 
     def generate_mask(self, length):
         mask = []
@@ -239,6 +249,8 @@ class AttModel(nn.Module):
         mask = torch.cat(mask, dim=0).byte()
 
         return mask.to(self.device)
+
+
 
 
 

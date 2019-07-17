@@ -145,7 +145,7 @@ class Trainer():
 
             optimizer.zero_grad()
 
-            y_hat = self.model(input_ids, sent_lens, word_lens)
+            y_hat, word_weights, sent_weights = self.model(input_ids, sent_lens, word_lens)
 
             # Calcuate loss and gradients with back-propagation.
             loss = self.crit(y_hat, y)
@@ -186,7 +186,7 @@ class Trainer():
                 batch = tuple(t.to(self.device) for t in batch)
                 input_ids, sent_lens, word_lens, y = batch
 
-                y_hat = self.model(input_ids, sent_lens, word_lens)
+                y_hat, word_weights, sent_weights = self.model(input_ids, sent_lens, word_lens)
                 loss = self.crit(y_hat, y)
 
                 total_loss += float(loss)
@@ -205,44 +205,5 @@ class Trainer():
         self.model.train()
         return avg_loss, avg_correct
 
-    def test(self, test):
-        total_loss, total_word_count = 0, 0
-        avg_loss = 0
 
-        result = []
-        user_ids = []
-
-        with torch.no_grad():
-            total_loss, total_word_count = 0, 0
-
-            progress_bar = tqdm(test, desc='test: ', unit='batch')
-
-            self.model.eval()
-            # Iterate for whole valid-set.
-            for idx, (batch, user_id) in enumerate(progress_bar):
-                x = self.get_movie(self.options, batch)
-
-                y_hat = self.model.search(x)
-                values, indices = y_hat.topk(self.test_num)
-                result.append(indices.view(-1, 1).cpu())
-                user_id = torch.cat([user_id.unsqueeze(1)]*self.test_num,  dim=1)
-                user_ids.append(user_id.view(-1, 1).cpu())
-
-
-            progress_bar.close()
-        result = torch.cat(result)
-        result = result.view(-1)
-        user_ids = torch.cat(user_ids).view(-1)
-        import pandas as pd
-        user_ids = user_ids.numpy()
-        result = result.numpy()
-        data = {"USER_ID" : user_ids,
-                "MOVIE_ID" : result,
-                }
-        self.save_result(data)
-        return data
-
-    def save_result(self, data):
-        import pandas as pd
-        pd.DataFrame(data).to_csv("result.csv", encoding='euc_kr', index=False)
 

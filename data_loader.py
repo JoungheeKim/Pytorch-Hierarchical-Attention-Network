@@ -12,6 +12,40 @@ from word_embeder import MyTokenizer
 import tools
 import os
 
+
+def get_data(data_path):
+    docs, labels = [], []
+    with open(data_path, encoding="UTF8") as csv_file:
+        reader = csv.reader(csv_file, quotechar='"')
+        for idx, line in enumerate(reader):
+            label = int(line[1])
+            docs.append(line[0])
+            labels.append(label)
+    num_class = np.unique(labels)
+    return docs, labels, num_class
+
+class MyGensimModel():
+    def __init__(self,
+                 model_path):
+        model = Word2Vec.load(model_path)
+        embedding = model.wv.vectors
+        dict_size = len(embedding)
+        index2word = model.wv.index2word
+        word_vec_dim = model.vector_size
+        # Insert Unknown Token
+        unknown_word = preprocessing.normalize(np.random.rand(1, word_vec_dim))
+        embedding = torch.from_numpy(np.concatenate([unknown_word, embedding], axis=0).astype(np.float))
+        index2word = ['[UNK]'] + index2word
+        dict_size += 1
+        word2index = {text: index for index, text in enumerate(index2word)}
+
+        self.model = model
+        self.embedding = embedding
+        self.dict_size = dict_size
+        self.index2word = index2word
+        self.word2index = word2index
+        self.word_vec_dim = word_vec_dim
+
 class MyDataLoader():
     def __init__(self,
                  train_path,
@@ -25,19 +59,11 @@ class MyDataLoader():
         ##Load vector from Word2vec
 
         model_path = os.path.join(dict_path, tools.WORD2VEC_NAME)
-        self.model = Word2Vec.load(model_path)
-        self.embedding = self.model.wv.vectors
-        self.dict_size = len(self.embedding)
-        self.index2word = self.model.wv.index2word
-        self.word_vec_dim = self.model.vector_size
-        self.tokenizer = MyTokenizer(tokenizer_name)
 
-        #Insert Unknown Token
-        unknown_word = preprocessing.normalize(np.random.rand(1, self.word_vec_dim))
-        self.embedding = torch.from_numpy(np.concatenate([unknown_word, self.embedding], axis=0).astype(np.float))
-        self.index2word = ['[UNK]'] + self.index2word
-        self.dict_size += 1
-        self.word2index = {text : index for index, text in enumerate(self.index2word)}
+        ## Update gensim infomation
+        self.model = MyGensimModel(model_path)
+
+        self.tokenizer = MyTokenizer(tokenizer_name)
 
         self.max_sent_len = max_sent_len
         self.max_word_len = max_word_len
@@ -51,30 +77,13 @@ class MyDataLoader():
         self.data_word_len = 0
 
     def get_dict_size(self):
-        return self.dict_size
+        return self.model.dict_size
 
     def get_dict_vec_dim(self):
-        return self.word_vec_dim
+        return self.model.word_vec_dim
 
     def get_embedding(self):
-        return self.embedding
-
-    def get_data(self, data_path):
-        docs, labels = [], []
-        with open(data_path, encoding="UTF8") as csv_file:
-            reader = csv.reader(csv_file, quotechar='"')
-            for idx, line in enumerate(reader):
-                """
-                text = ""
-                for tx in line[1:]:
-                    text += tx.lower()
-                    text += " "
-                """
-                label = int(line[1])
-                docs.append(line[0])
-                labels.append(label)
-        num_class = np.unique(labels)
-        return docs, labels, num_class
+        return self.model.embedding
 
     def get_dataset(self, docs, labels):
         docs_ids = []
@@ -82,7 +91,7 @@ class MyDataLoader():
         docs_word_len = []
 
         for doc in docs:
-            temp_index = [[self.word2index.get(word) if self.word2index.get(word) else 0 for word in
+            temp_index = [[self.model.word2index.get(word) if self.model.word2index.get(word) else 0 for word in
                            self.tokenizer.tokenize(sentences)] for sentences in sent_tokenize(doc)]
 
             for sentence in temp_index:
@@ -109,10 +118,10 @@ class MyDataLoader():
         return DocumentDataset(docs_ids, docs_sent_len, docs_word_len, labels, max_word_len=self.max_word_len, max_sent_len=self.max_sent_len)
 
     def get_train_valid(self):
-        docs, labels, train_class = self.get_data(self.train_path)
+        docs, labels, train_class = get_data(self.train_path)
         train = self.get_dataset(docs, labels)
 
-        docs, labels, valid_class = self.get_data(self.valid_path)
+        docs, labels, valid_class = get_data(self.valid_path)
         valid = self.get_dataset(docs, labels)
 
         if self.compac_max_length():
@@ -195,6 +204,6 @@ if __name__ == '__main__':
     valid_path = 'data/test.csv'
     dict_path = 'word2vec/3/word2vec.model'
     loader = MyDataLoader(train_path, valid_path, dict_path, max_word_len=1, max_sent_len=1)
-    train, valid = loader.get_train_valid()
+    train, valid, size = loader.get_train_valid()
 
 
