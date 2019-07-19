@@ -11,8 +11,8 @@ def build_parser():
     parser.add_argument("--device", dest="device", default="gpu")
 
     ##Loader option
-    parser.add_argument("--train_path", dest="train_path", default="source/train.csv")
-    parser.add_argument("--valid_path", dest="valid_path", default="source/test.csv")
+    parser.add_argument("--train_path", dest="train_path", default="yahoo/train.csv")
+    parser.add_argument("--valid_path", dest="valid_path", default="yahoo/test.csv")
     parser.add_argument("--save_path", dest="save_path", default=None)
     parser.add_argument("--max_sent_len", dest="max_sent_len", default=10, type=int)
     parser.add_argument("--max_word_len", dest="max_word_len", default=256, type=int)
@@ -44,8 +44,8 @@ def build_parser():
 
 def main(config):
     print("Experiment")
-    size_list = [100,200,300,400,500,600,700]
-    lr_list = [0.0002 , 0.0001, 0.00005, 0.000025]
+    size_list = [200,400,600]
+    lr_list = [0.0001]
     hidden_list = [128, 256, 512]
 
     """
@@ -62,12 +62,9 @@ def main(config):
     dict_list = [
         "word2vec/1",
         "word2vec/2",
-        "word2vec/3",
-        "word2vec/4",
-        "word2vec/5",
-        "word2vec/6",
-        "word2vec/7"
+        "word2vec/3"
     ]
+
 
     history = {
         "train_loss": [],
@@ -75,7 +72,8 @@ def main(config):
         "valid_correct": [],
         "epoch" : [],
         "lr" : [],
-        "word2vec" : []
+        "word2vec" : [],
+        "hidden_size" : []
     }
 
     ## Testing multiple options
@@ -84,12 +82,14 @@ def main(config):
         for lr in lr_list:
             config.lr = lr
             for hidden_size in hidden_list:
+                config.save_path = None
                 config.hidden_size = hidden_size
                 temp_history = run(config)
                 epoch_size = len(temp_history["train_loss"])
                 temp_epoch = [epoch for epoch in range(epoch_size)]
                 temp_lr = [lr for epoch in range(epoch_size)]
                 temp_word2vec = [dict_path for epoch in range(epoch_size)]
+                temp_hidden_size = [hidden_size for epoch in range(epoch_size)]
 
                 history["train_loss"].extend(temp_history["train_loss"])
                 history["valid_loss"].extend(temp_history["valid_loss"])
@@ -97,6 +97,7 @@ def main(config):
                 history["epoch"].extend(temp_epoch)
                 history["lr"].extend(temp_lr)
                 history["word2vec"].extend(temp_word2vec)
+                history["hidden_size"].extend(temp_hidden_size)
 
     df = pd.DataFrame(history)
     df.to_csv("result.csv", encoding="UTF8", index=False)
