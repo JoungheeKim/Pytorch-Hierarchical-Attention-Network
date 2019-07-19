@@ -95,7 +95,6 @@ class HierAttModel(nn.Module):
         selected_index = []
         for sent_idx, length in enumerate(sent_len):
             selected_index += [sent_idx * max_sent_len + idx for idx in range(length)]
-        torch.tensor(selected_index)
 
         ids = ids[selected_index].view(-1, max_word_len)
         word_len = word_len[selected_index].view(-1)
@@ -229,7 +228,7 @@ class AttModel(nn.Module):
         context_vector = context_vector.view(batch_size, -1)
         # |context_vector| = (batch_size, hidden_size)
 
-        context_weight = self.resize_weight(context_weight, length)
+        context_weight = torch.cat([context_weight, torch.zeros(batch_size, length - context_weight.size(1), device=self.device)], dim=1)
 
         return context_vector, context_weight
 
@@ -252,17 +251,3 @@ class AttModel(nn.Module):
         mask = torch.cat(mask, dim=0).byte()
 
         return mask.to(self.device)
-
-    def resize_weight(self, context_weight, length):
-        length_hat = context_weight.size(1)
-        if length > length_hat:
-            temp_weight = []
-            for weight in context_weight:
-                temp_weight += [torch.cat([weight, weight.new_ones(length - length_hat).zero_()]).view(1, -1)]
-            context_weight = torch.cat(temp_weight, dim=0)
-        return context_weight
-
-
-
-
-
