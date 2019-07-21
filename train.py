@@ -1,8 +1,11 @@
 import pandas as pd
 import numpy
 from argparse import ArgumentParser
+
+from tensorboardX import embedding
+
 from data_loader import MyDataLoader
-from model import HierAttModel
+from model import HierarchialAttentionNetwork
 from trainer import Trainer
 from torch import nn
 import torch
@@ -20,7 +23,7 @@ def build_parser():
     ##Loader option
     parser.add_argument("--train_path", dest="train_path", default="source/train.csv")
     parser.add_argument("--valid_path", dest="valid_path", default="source/test.csv")
-    parser.add_argument("--dict_path", dest="dict_path", default="word2vec/1")
+    parser.add_argument("--dict_path", dest="dict_path", default="word2vec/2")
     parser.add_argument("--save_path", dest="save_path", default=None)
     parser.add_argument("--max_sent_len", dest="max_sent_len", default=10, type=int)
     parser.add_argument("--max_word_len", dest="max_word_len", default=256, type=int)
@@ -28,15 +31,15 @@ def build_parser():
                         help="Choose gensim, word_tokenizer")
 
     ##Model option
-    parser.add_argument("--running_size", dest="running_size", default=32, type=int)
-    parser.add_argument("--hidden_size", dest="hidden_size", default=512, type=int)
+    parser.add_argument("--atten_size", dest="atten_size", default=128, type=int)
+    parser.add_argument("--hidden_size", dest="hidden_size", default=128, type=int)
     parser.add_argument("--n_layers", dest="n_layers", default=1, type=int)
 
     ##Train option
     parser.add_argument("--n_epochs", dest="n_epochs", default=15, type=int)
-    parser.add_argument("--lr", dest="lr", default=0.00001, type=int)
+    parser.add_argument("--lr", dest="lr", default=0.0001, type=int)
     parser.add_argument("--early_stop", dest="early_stop", default=1, type=int)
-    parser.add_argument("--batch_size", dest="batch_size", default=16, type=int)
+    parser.add_argument("--batch_size", dest="batch_size", default=2, type=int)
     parser.add_argument("--num_class", dest="num_class", default=1, type=int)
 
     config = parser.parse_args()
@@ -90,21 +93,22 @@ def run(config):
     logging.info("##################### Valid Dataset size : [" + str(len(valid)) + "]")
     logging.info("##################### class size : [" + str(num_class) + "]")
 
-    input_size = loader.get_dict_size()
+    dict_size = loader.get_dict_size()
     word_vec_dim = loader.get_dict_vec_dim()
     embedding = loader.get_embedding()
     config.num_class = num_class
 
     logging.info("##################### Load 'HAN' Model")
-    model = HierAttModel(input_size=input_size,
-                         word_vec_dim=word_vec_dim,
-                         hidden_size=config.hidden_size,
-                         num_class=num_class,
-                         running_size=config.running_size,
-                         n_layers=config.n_layers,
-                         device=config.device
-                         ).to(config.device)
+    model = HierarchialAttentionNetwork(dictionary_size=dict_size,
+                                        embedding_size=word_vec_dim,
+                                        hidden_size=config.hidden_size,
+                                        attention_size=config.atten_size,
+                                        num_class=num_class,
+                                        n_layers=config.n_layers,
+                                        device=config.device
+                                        )
     model.set_embedding(embedding)
+    model.to(config.device)
 
     crit = nn.NLLLoss()
     trainer = Trainer(model=model,
