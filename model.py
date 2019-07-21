@@ -2,235 +2,123 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence as pack
 from torch.nn.utils.rnn import pad_packed_sequence as unpack
-
-def hierIterator(tensor, tensor_len, batch_size):
-    count = 0
-    max_len = len(tensor_len)
-    while True:
-        if count + batch_size >= max_len:
-            yield tensor[count:], tensor_len[count:]
-            break
-
-        yield tensor[count: count+batch_size], tensor_len[count: count+batch_size]
-        count = count+batch_size
+from torch.nn.utils.rnn import PackedSequence
 
 
-class Attention(nn.Module):
 
-    def __init__(self, hidden_size):
-        super(Attention, self).__init__()
+class HierarchialAttentionNetwork(nn.Module):
 
-        self.linear = nn.Linear(hidden_size, hidden_size, bias=False)
-        self.softmax = nn.Softmax(dim=-1)
+    def __init__(self, dictionary_size, embedding_size, hidden_size, attention_size,
+                 num_class, n_layers=1, dropout_p=0.05, device="cpu"):
 
-    def forward(self, h_src, query, mask=None):
-        # |h_src| = (batch_size, length, hidden_size)
-        # |query| = (hidden_size, 1)
-        # |mask| = (batch_size, length)
+        super(HierarchialAttentionNetwork, self).__init__()
 
-        batch_size = h_src.size(0)
-        hidden_size = query.size(0)
+        self.word_attention_model = WordAttention(dictionary_size=dictionary_size,
+                                                  embedding_size=embedding_size,
+                                                  hidden_size=hidden_size,
+                                                  attention_size=attention_size,
+                                                  n_layers=n_layers,
+                                                  dropout_p=dropout_p,
+                                                  device=device
+                                                  )
 
-        weight = torch.mm(h_src.view(-1, hidden_size), query).view(batch_size, -1)
-        # |weight| = (batch_size, length)
-
-        if mask is not None:
-            # Set each weight as -inf, if the mask value equals to 1.
-            # Since the softmax operation makes -inf to 0, masked weights would be set to 0 after softmax operation.
-            # Thus, if the sample is shorter than other samples in mini-batch, the weight for empty time-step would be set to 0.
-            weight.masked_fill_(mask, -float('inf'))
-        weight = self.softmax(weight)
-
-        context_vector = torch.bmm(weight.unsqueeze(1), h_src)
-        # |context_vector| = (batch_size, 1, hidden_size)
-
-        return context_vector, weight
-
-
-class HierAttModel(nn.Module):
-
-    def __init__(self,
-                 input_size,
-                 word_vec_dim,
-                 hidden_size,
-                 num_class,
-                 n_layers=1,
-                 dropout_p=0,
-                 running_size=32,
-                 device=torch.device("cpu")
-                 ):
-        super(HierAttModel, self).__init__()
+        self.sentence_attention_model = SentenceAttention(input_size=hidden_size,
+                                                          hidden_size=hidden_size,
+                                                          attention_size=attention_size,
+                                                          n_layers=n_layers,
+                                                          dropout_p=dropout_p,
+                                                          device=device
+                                                          )
 
         self.device = device
-        self.word_model = AttModel(input_size,
-                                   word_vec_dim,
-                                   hidden_size,
-                                   n_layers=n_layers,
-                                   dropout_p=dropout_p,
-                                   use_embed=True,
-                                   device=device
-                                   ).to(device)
-        self.sent_model = AttModel(hidden_size,
-                                   word_vec_dim,
-                                   hidden_size,
-                                   n_layers=n_layers,
-                                   dropout_p=dropout_p,
-                                   use_embed=False,
-                                   device=device
-                                   ).to(device)
-        self.running_size = running_size
         self.output = nn.Linear(hidden_size, num_class)
         self.softmax = nn.LogSoftmax(dim=-1)
 
-    def forward(self, ids, sent_len, word_len):
-        batch_size, max_sent_len, max_word_len = ids.size()
-        # |ids| = (batch_size, max_sent_len, max_word_len)
+    def forward(self, document, sentence_per_document, word_per_sentence):
+        batch_size, max_sentence_length, max_word_length = document.size()
+        # |document| = (batch_size, max_sentence_length, max_word_length)
+        # |sentence_per_document| = (batch_size)
+        # |word_per_sentence| = (batch_size, max_sentence_length)
 
-        ids = ids.view(-1, max_word_len)
-        word_len = word_len.view(-1)
-        # |ids| = (total_len, max_word_len)
-        # |word_len| = (total_len)
+        # Remove sentence-padding in document by using "pack_padded_sequence.data"
+        packed_sentences = pack(document,
+                                lengths=sentence_per_document.tolist(),
+                                batch_first=True,
+                                enforce_sorted=False)
+        # |packed_sentences.data| = (sum(sentence_length), max_word_length)
 
-        # Pick the indices having information
-        selected_index = []
-        for sent_idx, length in enumerate(sent_len):
-            selected_index += [sent_idx * max_sent_len + idx for idx in range(length)]
+        # Remove sentence-padding in word_per_sentence "pack_padded_sequence.data"
+        packed_words_per_sentence = pack(word_per_sentence,
+                                         lengths=sentence_per_document.tolist(),
+                                         batch_first=True,
+                                         enforce_sorted=False)
+        # |packed_words_per_sentence.data| = (sum(sentence_length))
 
-        ids = ids[selected_index].view(-1, max_word_len)
-        word_len = word_len[selected_index].view(-1)
-        # |ids| = (total_len, max_word_len)
-        # |word_len| = (total_len)
+        # Get sentence vectors
+        sentence_vecs, word_weights = self.word_attention_model(packed_sentences.data,
+                                                                packed_words_per_sentence.data)
+        # |sentence_vecs| = (sum(sentence_length), hidden_size)
+        # |word_weights| = (sum(sentence_length, max(word_per_sentence))
 
-        sent_vecs = []
-        word_weights = []
-        for temp_ids, temp_word_len in hierIterator(ids, word_len, self.running_size):
-            sent_vec, word_weight = self.word_model(temp_ids, temp_word_len)
-            sent_vecs += [sent_vec]
-            word_weights += [word_weight]
-        sent_vecs = torch.cat(sent_vecs, dim=0)
-        word_weights = torch.cat(word_weights, dim=0)
+        # "packed_sentences" have same information to recover PackedSequence for sentence
+        packed_sentence_vecs = PackedSequence(data=sentence_vecs,
+                                              batch_sizes=packed_sentences.batch_sizes,
+                                              sorted_indices=packed_sentences.sorted_indices,
+                                              unsorted_indices=packed_sentences.unsorted_indices)
 
-        hidden_size = sent_vecs.size(1)
-        temp_vec = []
-        max_length = max(sent_len)
-
-        for l in sent_len:
-            if max_length - l > 0:
-                temp_vec += [torch.cat([sent_vecs[:l], torch.zeros(((max_length - l), hidden_size), device=self.device)]).unsqueeze(0)]
-            else:
-                temp_vec += [sent_vecs[:l].unsqueeze(0)]
-            sent_vecs = sent_vecs[l:]
-        sent_vecs = torch.cat(temp_vec, dim=0)
-
-        doc_vecs = []
-        sent_weights = []
-        for temp_vec, temp_sent_len in hierIterator(sent_vecs, sent_len, self.running_size):
-            doc_vec, sent_weight = self.sent_model(temp_vec, temp_sent_len)
-            doc_vecs += [doc_vec]
-            sent_weights += [sent_weight]
-        doc_vecs = torch.cat(doc_vecs, dim=0)
-        sent_weights = torch.cat(sent_weights, dim=0)
+        # Get document vectors
+        doc_vecs, sentence_weights = self.sentence_attention_model(packed_sentence_vecs,
+                                                                   sentence_per_document)
+        # |doc_vecs| = (batch_size, hidden_size)
+        # |sentence_weights| = (batch_size)
 
         y = self.softmax(self.output(doc_vecs))
 
-        return y, word_weights, sent_weights
+        return y, sentence_weights, word_weights
 
-    def set_embedding(self, embedding):
-        self.word_model.emb_src.weight.data.copy_(embedding)
+    def set_embedding(self, embedding, requires_grad = True):
+        self.word_attention_model.emb.weight.data.copy_(embedding)
         return True
 
 
-class AttModel(nn.Module):
-    def __init__(self,
-                 input_size,
-                 word_vec_dim,
-                 hidden_size,
-                 n_layers=1,
-                 dropout_p=0,
-                 use_embed=False,
-                 device=torch.device("cpu")
-                 ):
-        super(AttModel, self).__init__()
+
+class SentenceAttention(nn.Module):
+    def __init__(self, input_size, hidden_size, attention_size, n_layers=1, dropout_p=0, device="cpu"):
+        super(SentenceAttention, self).__init__()
 
         self.device=device
-        self.use_embed = use_embed
-        vec_dim = input_size
-        if use_embed:
-            self.emb_src = nn.Embedding(input_size, word_vec_dim).to(device)
-            vec_dim = word_vec_dim
-        self.rnn = nn.GRU(vec_dim,
-                          int(hidden_size / 2),
+        self.rnn = nn.GRU(input_size=input_size,
+                          hidden_size=int(hidden_size / 2),
                           num_layers=n_layers,
                           dropout=dropout_p,
                           bidirectional=True,
                           batch_first=True
-                          ).to(device)
+                          )
 
-        self.attn = Attention(hidden_size).to(device)
+        self.attn = Attention(hidden_size=hidden_size,
+                              attention_size=attention_size)
 
-        self.context_weight = nn.Parameter(torch.Tensor(hidden_size, 1)).to(device)
-        self.context_weight.data.normal_(mean=0.0, std=0.02)
-        # |context_weight| = (hidden_size, 1)
 
-    def encode(self, emb):
-        if isinstance(emb, tuple):
-            x, lengths = emb
-            x = pack(x, lengths.tolist(), batch_first=True, enforce_sorted=False)
-            # Below is how pack_padded_sequence works.
-            # As you can see, PackedSequence object has information about mini-batch-wise information, not time-step-wise information.
-            #
-            # a = [torch.tensor([1,2,3]), torch.tensor([3,4])]
-            # b = torch.nn.utils.rnn.pad_sequence(a, batch_first=True)
-            # >>>>
-            # tensor([[ 1,  2,  3],
-            #     [ 3,  4,  0]])
-            # torch.nn.utils.rnn.pack_padded_sequence(b, batch_first=True, lengths=[3,2]
-            # >>>>PackedSequence(data=tensor([ 1,  3,  2,  4,  3]), batch_sizes=tensor([ 2,  2,  1]))
-        else:
-            x = emb
+    def forward(self, packed_sentences, sentence_per_document):
+        # |packed_sentences| = PackedSequence()
 
-        y, h = self.rnn(x)
-        # |y| = (batch_size, length, hidden_size)
-        # |h[0]| = (num_layers * 2, batch_size, hidden_size / 2)
+        # Apply RNN and get hiddens layers of each sentences
+        last_hiddens, _ = self.rnn(packed_sentences)
 
-        if isinstance(emb, tuple):
-            y, _ = unpack(y, batch_first=True)
-
-        return y, h
-
-    def forward(self, x, x_length):
-        # |x| = (batch_size, length)
-        # |x_length| = (batch_size)
-        # 'length equals torch.max(x_length)
-        batch_size= x.size(0)
-        length = x.size(1)
+        # Unpack ouput of rnn model
+        last_hiddens, _ = unpack(last_hiddens, batch_first=True)
+        # |last_hiddens| = (sentence_length, max(word_per_sentence), hidden_size)
 
         # Based on the length information, gererate mask to prevent that shorter sample has wasted attention.
-        mask = self.generate_mask(x_length)
-        # |mask| = (batch_size, length)
+        mask = self.generate_mask(sentence_per_document)
+        # |mask| = (sentence_length, max(word_per_sentence))
 
-        if self.use_embed:
-            # Get word embedding vectors for every time-step of input sentence.
-            emb_src = self.emb_src(x)
-            # |emb_src| = (batch_size, length, word_vec_dim)
-        else:
-            emb_src = x
+        # Get attention weights and context vectors
+        context_vectors, context_weights = self.attn(last_hiddens, mask)
+        # |context_vectors| = (sentence_length, hidden_size)
+        # |context_weights| = (sentence_length, max(word_per_sentence))
 
-        # The last hidden state of the encoder would be a initial hidden state of decoder.
-        h_src, h_0_tgt = self.encode((emb_src, x_length))
-        # |h_src| = (batch_size, 'length, hidden_size)   - Notice that 'length equals torch.max(x_length)
-        # |h_0_tgt| = (n_layers * 2, batch_size, hidden_size / 2)
-
-        context_vector, context_weight = self.attn(h_src, self.context_weight, mask)
-        # |context_vector| = (batch_size, 1, hidden_size)
-        # |context_weight| = (batch_size, 'length) - Notice that 'length equals torch.max(x_length)
-
-        context_vector = context_vector.view(batch_size, -1)
-        # |context_vector| = (batch_size, hidden_size)
-
-        context_weight = torch.cat([context_weight, torch.zeros(batch_size, length - context_weight.size(1), device=self.device)], dim=1)
-
-        return context_vector, context_weight
+        return context_vectors, context_weights
 
     def generate_mask(self, length):
         mask = []
@@ -251,3 +139,116 @@ class AttModel(nn.Module):
         mask = torch.cat(mask, dim=0).byte()
 
         return mask.to(self.device)
+
+class WordAttention(nn.Module):
+    def __init__(self, dictionary_size, embedding_size, hidden_size, attention_size, n_layers=1, dropout_p=0, device="cpu"):
+        super(WordAttention, self).__init__()
+
+        self.device=device
+        self.emb = nn.Embedding(dictionary_size, embedding_size).to(device)
+        self.rnn = nn.GRU(input_size=embedding_size,
+                          hidden_size=int(hidden_size / 2),
+                          num_layers=n_layers,
+                          dropout=dropout_p,
+                          bidirectional=True,
+                          batch_first=True
+                          )
+
+        self.attn = Attention(hidden_size=hidden_size,
+                              attention_size=attention_size)
+
+
+    def forward(self, sentence, word_per_sentence):
+        # |sentence| = (sentence_length, max_word_length)
+        # |word_per_sentence| = (sentence_length)
+
+        sentence = self.emb(sentence)
+        # |sentence| = (sentence_length, max_word_length, embedding_size)
+
+        # Pack sentence before insert rnn model.
+        packed_sentences = pack(sentence,
+                                lengths=word_per_sentence.tolist(),
+                                batch_first=True,
+                                enforce_sorted=False)
+
+        # Apply RNN and get hiddens layers of each words
+        last_hiddens, _ = self.rnn(packed_sentences)
+
+        # Unpack ouput of rnn model
+        last_hiddens, _ = unpack(last_hiddens, batch_first=True)
+        # |last_hiddens| = (sentence_length, max(word_per_sentence), hidden_size)
+
+        # Based on the length information, gererate mask to prevent that shorter sample has wasted attention.
+        mask = self.generate_mask(word_per_sentence)
+        # |mask| = (sentence_length, max(word_per_sentence))
+
+        context_vectors, context_weights = self.attn(last_hiddens, mask)
+        # |context_vectors| = (sentence_length, hidden_size)
+        # |context_weights| = (sentence_length, max(word_per_sentence))
+
+        return context_vectors, context_weights
+
+    def generate_mask(self, length):
+        mask = []
+
+        max_length = max(length)
+        for l in length:
+            if max_length - l > 0:
+                # If the length is shorter than maximum length among samples,
+                # set last few values to be 1s to remove attention weight.
+                mask += [torch.cat(
+                    [torch.zeros((1, l), dtype=torch.uint8), torch.ones((1, (max_length - l)), dtype=torch.uint8)],
+                    dim=-1)]
+            else:
+                # If the length of the sample equals to maximum length among samples,
+                # set every value in mask to be 0.
+                mask += [torch.zeros((1, l), dtype=torch.uint8)]
+
+        mask = torch.cat(mask, dim=0).byte()
+
+        return mask.to(self.device)
+
+class Attention(nn.Module):
+
+    def __init__(self, hidden_size, attention_size):
+        super(Attention, self).__init__()
+
+        self.linear = nn.Linear(hidden_size, attention_size, bias=False)
+        self.tanh = nn.Tanh()
+        self.softmax = nn.Softmax(dim=-1)
+
+        ## Context vector
+        self.context_weight = nn.Parameter(torch.Tensor(attention_size, 1))
+        self.context_weight.data.normal_(mean=0.0, std=0.02)
+
+    def forward(self, h_src, mask=None):
+        # |h_src| = (batch_size, length, hidden_size)
+        # |mask| = (batch_size, length)
+        batch_size, length, hidden_size = h_src.size()
+
+        # Resize hidden_vectors to generate weight
+        weights = h_src.view(-1, hidden_size)
+        weights = self.linear(weights)
+        weights = self.tanh(weights)
+
+        weights = torch.mm(weights, self.context_weight).view(batch_size, -1)
+        # |weights| = (batch_size, length)
+
+        if mask is not None:
+            # Set each weight as -inf, if the mask value equals to 1.
+            # Since the softmax operation makes -inf to 0, masked weights would be set to 0 after softmax operation.
+            # Thus, if the sample is shorter than other samples in mini-batch, the weight for empty time-step would be set to 0.
+            weights.masked_fill_(mask, -float('inf'))
+
+        # Modified every values to (0~1) by using softmax function
+        weights = self.softmax(weights)
+        # |weights| = (batch_size, length)
+
+        context_vectors = torch.bmm(weights.unsqueeze(1), h_src)
+        # |context_vector| = (batch_size, 1, hidden_size)
+
+        context_vectors = context_vectors.squeeze(1)
+        # |context_vector| = (batch_size, hidden_size)
+
+        return context_vectors, weights
+
