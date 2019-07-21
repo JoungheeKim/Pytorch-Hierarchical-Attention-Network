@@ -124,12 +124,10 @@ class MyDataLoader():
         docs, labels, valid_class = get_data(self.valid_path)
         valid = self.get_dataset(docs, labels)
 
-        """
         if self.compac_max_length():
             train.set_max_len(max_sent_len=self.data_sent_len, max_word_len=self.data_word_len)
             valid.set_max_len(max_sent_len=self.data_sent_len, max_word_len=self.data_word_len)
-        """
-
+        
         ##Put DataLoader
         train = DataLoader(train, batch_size=self.batch_size, shuffle=True)
         valid = DataLoader(valid, batch_size=self.batch_size, shuffle=False)
