@@ -1,10 +1,12 @@
 # Pytorch-Hierarchical-Attention-Network
 This is pytorch implementation of [Hierarchial Attention Network (HAN)](https://www.cs.cmu.edu/~hovy/papers/16HLT-hierarchical-attention-networks.pdf)
 
+
 ### Dataset
 To test model, I use a dataset of 50,000 movie reviews taken from IMDb. 
 It is divied into 'train', 'test' dataset and each data has 25,000 movie reviews and labels(positive, negetive).
 You can access to dataset with this [link](http://ai.stanford.edu/~amaas/data/sentiment/)
+
 
 ### How to use it?
 Follow the example
@@ -12,7 +14,6 @@ Follow the example
 #### 1 Generate Word2Vec Embeddings
 I implement "gensim" library to generate Word2vec embeddings. To generate word2vec embeddings, follow the sample
 
-##### Sample
 ```python
 python word_embeder.py --train_path source/train.csv --dict_path word2vec --tokenizer_name word_tokenizer --size 200 --window 5 --min_count 3
 ```
@@ -34,10 +35,10 @@ There is a lot of options to check.
 13. early_stop : A early_stop condition. If you don't want to use this options, put -1
 14. batch_size : Batch size to train
 
-##### Sample
 ```python
 python train.py --train_path source/train.csv --valid_path source/test.csv --dict_path word2vec/1 --tokenizer_name word_tokenizer --hidden_size 256 --atten_size 128 --min_count 3 --batch_size 16
 ```
+
 
 ### Reference
 My pytorch implementation is highly impressed by other works. Please check below to see other works.
