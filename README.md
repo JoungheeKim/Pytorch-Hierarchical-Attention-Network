@@ -1,9 +1,17 @@
 # Pytorch-Hierarchical-Attention-Network
 This is pytorch implementation of [Hierarchial Attention Network (HAN)](https://www.cs.cmu.edu/~hovy/papers/16HLT-hierarchical-attention-networks.pdf)
 
-For test model I use a dataset of 50,000 movie reviews taken from IMDb. It is divied into 'train', 'test' dataset each has 25,000 movie reviews and labels(positive, negetive). You can access to dataset with this [link](http://ai.stanford.edu/~amaas/data/sentiment/)
+#### Dataset
+To test model, I use a dataset of 50,000 movie reviews taken from IMDb. 
+It is divied into 'train', 'test' dataset and each dataset has 25,000 movie reviews and labels(positive, negetive).
+You can access to dataset with this [link](http://ai.stanford.edu/~amaas/data/sentiment/)
 
-My pytorch implementation is highly impressed by other works.
+#### Reference
+My pytorch implementation is highly impressed by other works. Please check other works below.
+1. https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Text-Classification
+2. https://github.com/sharkmir1/Hierarchical-Attention-Network
+
+
 
 visulazation Method:
 https://github.com/minqi/hnatt
