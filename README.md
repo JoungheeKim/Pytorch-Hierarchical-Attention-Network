@@ -39,6 +39,8 @@ There is a lot of options to check.
 python train.py --train_path source/train.csv --valid_path source/test.csv --dict_path word2vec/1 --tokenizer_name word_tokenizer --hidden_size 256 --atten_size 128 --min_count 3 --batch_size 16
 ```
 
+#### 3 Visualize Model
+Check the code ["visualize_tutorial.ipynb"](https://github.com/JoungheeKim/Pytorch-Hierarchical-Attention-Network/blob/master/visualize_tutorial.ipynb)
 
 ### Reference
 My pytorch implementation is highly impressed by other works. Please check below to see other works.
