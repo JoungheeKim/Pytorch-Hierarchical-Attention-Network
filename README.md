@@ -47,8 +47,8 @@ Check the code["visualize_tutorial.ipynb"](https://github.com/JoungheeKim/Pytorc
 
 
 ### Result
-
 Result with hyper parameter settings
+
 | word2vec dimention | hidden size | Best Epoch |  lr  | train loss | valid loss | valid correction |
 |--------------------|:-----------:|:----------:|:----:|:----------:|:----------:|:----------------:|
 | 200                |    128      |      3     |0.0001|   0.0159   |   0.0174   |      0.88168     |
