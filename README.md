@@ -46,7 +46,23 @@ Check the code["visualize_tutorial.ipynb"](https://github.com/JoungheeKim/Pytorc
 ![](img/visualized_sentiment_document.PNG)
 
 
+### Result
+
+Result with hyper parameter settings
+| word2vec dimention | hidden size | Best Epoch |  lr  | train loss | valid loss | valid correction |
+|--------------------|:-----------:|:----------:|:----:|:----------:|:----------:|:----------------:|
+| 200                |    128      |      3     |0.0001|   0.0159   |   0.0174   |      0.88168     |
+| 200                |    256      |      3     |0.0001|   0.0150   |   0.0180   |      0.88004     |
+| 200                |    512      |      3     |0.0001|   0.0147   |   0.0168   |      0.88956     |
+| 400                |    128      |      2     |0.0001|   0.0178   |   0.0174   |      0.88240     |
+| 400                |    256      |      2     |0.0001|   0.0173   |   0.0168   |      0.88668     |
+| 400                |    512      |      2     |0.0001|   0.0170   |   0.0170   |      0.88724     |
+| 600                |    128      |      2     |0.0001|   0.0162   |   0.0168   |      0.88784     |
+| 600                |    256      |      2     |0.0001|   0.0163   |   0.0168   |      0.88548     |
+| 600                |    512      |      2     |0.0001|   0.0164   |   0.0171   |      0.88348     |
+
 ### Reference
+
 My pytorch implementation is highly impressed by other works. Please check below to see other works.
 1. https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Text-Classification
 2. https://github.com/sharkmir1/Hierarchical-Attention-Network
