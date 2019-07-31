@@ -36,7 +36,7 @@ There is a lot of options to check.
 14. batch_size : Batch size to train
 
 ```python
-python train.py --train_path source/train.csv --valid_path source/test.csv --dict_path word2vec/1 --tokenizer_name word_tokenizer --hidden_size 256 --atten_size 128 --min_count 3 --batch_size 16
+python train.py --train_path source/train.csv --valid_path source/test.csv --dict_path word2vec/1 --hidden_size 256 --atten_size 128 --batch_size 16
 ```
 
 #### 3 Visualize Model
