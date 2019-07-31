@@ -40,7 +40,7 @@ python train.py --train_path source/train.csv --valid_path source/test.csv --dic
 ```
 
 #### 3 Visualize Model
-Check the code["visualize_tutorial.ipynb"](https://github.com/JoungheeKim/Pytorch-Hierarchical-Attention-Network/blob/master/visualize_tutorial.ipynb)
+Check the code ["visualize_tutorial.ipynb"](https://github.com/JoungheeKim/Pytorch-Hierarchical-Attention-Network/blob/master/visualize_tutorial.ipynb)
 
 
 ![](img/visualized_sentiment_document.PNG)
